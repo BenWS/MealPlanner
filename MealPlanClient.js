@@ -3,19 +3,34 @@ const MealPlanner = require("./MealPlanner.js");
 var ben = new MealPlanner.Person(27, "Male", 170, 72, "VERY ACTIVE");
 var mealPlan = new MealPlanner.MealPlan(ben, 3);
 var breakfast = new MealPlanner.Meal("Breakfast", mealPlan, 1);
+var lunch = new MealPlanner.Meal("Lunch", mealPlan, 3);
+// var foodDataClient = new MealPlanner.FoodDataClient()
 
-//have user select food group
-var foodGroup = "Meat, Poultry, Nuts";
-//display all the food options under selected food Group
-var foodsInGroup = MealPlanner.food.filter((element) => element.Group == foodGroup).map((element) => element.Food);
-// console.log(foodsInGroup);
-breakfast.addFood("Banana", 1);
-breakfast.addFood("Almonds", 1);
-breakfast.addFood("Cheddar Cheese", 1);
-// console.log("Meal Details: " + JSON.stringify(breakfast));
-breakfast.validate();
-// mealPlan.addMeal(breakfast);
+breakfast.addFood("05009", 3);
+breakfast.addFood("05009", 3);
+breakfast.addFood("11829", 1);
+lunch.addFood("11829", 1);
+lunch.addFood("11829", 1);
 
-//daily food serving requirement:
+mealPlan.addMeal(breakfast);
+mealPlan.addMeal(lunch);
 
-//MealPlan.getAllFood()
+/*
+User cannot make food selection that violates the daily limit of N servings for group G
+
+Get Meal Plan Limit for every Food Group
+Get Current Number of Servings for Each Group in Meal Plan
+  Create DistinctFoodGroupArray
+  For Each Group in DistinctFoodGroupArray
+    For each Food in FoodArray
+      If Food is in Group then servingCount += Food.servings
+      If Else, Continue
+If Meal Plan Limit Exceeds
+*/
+// console.log(mealPlan.servingsRequiredbyGroup);
+
+// For each Distinct Food Group
+//   If mealPlan current servings count exceeds requiredByGroup, return FALSE
+//   Else return true
+
+console.log(mealPlan.validate_GroupServingLimit());

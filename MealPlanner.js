@@ -1,18 +1,4 @@
-
-var foodList =
-
-[{"Food":"Butter","Group":"Fats, Oils, Sugars", "Amount":"1", "UOM":"tbsp","Grams":"14","Calories":"100","Protein":"t","Carbohydrates":"t", "Fiber":"0", "Fat":"11"}
-, {"Food":"Sour Cream","Group":"Fats, Oils, Sugars", "Amount":"2", "UOM":"tbsp","Grams":"24","Calories":"46.3","Protein":"0.5","Carbohydrates":"0.7", "Fiber":"0", "Fat":"4.7"}
-, {"Food":"Olive Oil","Group":"Fats, Oils, Sugars", "Amount":"1", "UOM":"tbsp","Grams":"14","Calories":"125","Protein":"0","Carbohydrates":"0", "Fiber":"0", "Fat":"14"}
-, {"Food":"Banana","Group":"Fruit", "Amount":"1", "UOM":"item","Grams":"150","Calories":"85","Protein":"1","Carbohydrates":"23", "Fiber":"0.9", "Fat":"t"}
-, {"Food":"Apple","Group":"Fruit", "Amount":"1", "UOM":"item","Grams":"130","Calories":"70","Protein":"t","Carbohydrates":"18", "Fiber":"1", "Fat":"t "}
-, {"Food":"Brown Rice, Uncooked","Group":"Grains", "Amount":"0.50", "UOM":"cup","Grams":"104","Calories":"374","Protein":"7.5","Carbohydrates":"77", "Fiber":"0.6", "Fat":"1.5"}
-, {"Food":"Almonds","Group":"Meat, Poultry, Nuts", "Amount":"0.25", "UOM":"cup","Grams":"35","Calories":"212.5","Protein":"6.5","Carbohydrates":"6.5", "Fiber":"0.9", "Fat":"19"}
-, {"Food":"Chicken Breast, Cooked","Group":"Meat, Poultry, Nuts", "Amount":"1.00", "UOM":"oz","Grams":"28.33","Calories":"61.66","Protein":"7.66","Carbohydrates":"0", "Fiber":"0", "Fat":"3"}
-, {"Food":"Raw Carrots","Group":"Vegetable", "Amount":"1.00", "UOM":"cup","Grams":"110","Calories":"45","Protein":"1","Carbohydrates":"10", "Fiber":"1.2", "Fat":"t"}
-, {"Food":"Baked Potato","Group":"Vegetable", "Amount":"1.00", "UOM":"item","Grams":"100","Calories":"100","Protein":"2","Carbohydrates":"22", "Fiber":"0.5", "Fat":"t"}
-, {"Food":"Broccoli, Steamed","Group":"Vegetable", "Amount":"0.50", "UOM":"cup","Grams":"75","Calories":"22.5","Protein":"2.5","Carbohydrates":"4", "Fiber":"0.95", "Fat":"t"}
-, {"Food":"Cheddar Cheese","Group":"Dairy", "Amount":"1.00", "UOM":"slice","Grams":"21","Calories":"85","Protein":"4.8","Carbohydrates":"0.71", "Fiber":"0", "Fat":"7"}]
+const foodDatabase = require("./FoodDatabase.js");
 
 function Person (age, sex, weight_lbs, height_in, activityLevel) {
   this.age = age;
@@ -46,7 +32,6 @@ function Person (age, sex, weight_lbs, height_in, activityLevel) {
 }
 
 function Meal (name, mealPlan, mealSize) {
-  //further research: look into ways to validate object construction
 
   mealSize = parseInt(mealSize);
   if (mealSize >= 1 && mealSize <= 5) {
@@ -62,6 +47,7 @@ function Meal (name, mealPlan, mealSize) {
   this.validate;
   this.name = name;
   this.foodArray = [];
+  this.mealPlan = mealPlan;
 
   if(this.servingsRequired >= 3) {
     this.distinctGroupsRequired = 3;
@@ -70,35 +56,77 @@ function Meal (name, mealPlan, mealSize) {
   }
 }
 
-Meal.prototype.addFood = function(food,numberOfServings) {
-  //to do: add check that food does not already exist in the foodArray
-  var foodLookupResult = foodList.filter((foodRecord) => foodRecord.Food === food)[0];
-  var newArrayLength = this.foodArray.push({
-    "food":foodLookupResult.Food
-    ,"calories_per_serving":foodLookupResult.Calories
-    , "servings":numberOfServings});
+Meal.prototype.addFood = function(foodID,numberOfServings) {
 
-  return newArrayLength - 1; //return position of new entry in array
+  var foodDataClient = new FoodDataClient();
+  var foodObject = foodDataClient.getFood(foodID);
+
+  foodObject.servings = numberOfServings;
+  this.foodArray.push(foodObject);
+  return true;
 }
 
-Meal.prototype.removeFood = function(lookupKey) {
-  return this.foodArray.splice(lookupKey,1);
+Meal.prototype.removeFood = function(foodArrayIndex) {
+  return this.foodArray.splice(key,1);
 }
 
-Meal.prototype.validate = function() {
-  //current food groups chosen makes it possible for the user to still meet the food group variety requirement
-  //daily food group serving requirement is not exceeded
+function getDistinctValues(array) {
+  var distinctArray = [];
+  array.forEach((element) => {
+    if(!distinctArray.includes(element)) {
+      distinctArray.push(element);
+    }
+  })
+  return distinctArray;
+}
 
+function getCountsPerElement(array) {
+  var distinctArray = getDistinctValues(array);
+  var counts = {};
+  distinctArray.forEach((element) => counts[element] = 0);
+  distinctArray.forEach((element) => counts[element] = 0);
+  array.forEach((element) => counts[element] = counts[element] + 1);
+  return counts;
+}
+
+function sumOverArray(array, groupByProperty, sumOverProperty) {
+
+  var tempArray = array.map((element) => element[groupByProperty])
+  var distinctArray = getDistinctValues(tempArray);
+  var sums = {};
+  distinctArray.forEach((element) => sums[element] = 0);
+  array.forEach((element) => sums[element[groupByProperty]] += element[sumOverProperty]);
+  return sums;
+}
+
+Meal.prototype.validate_FoodUnqiueness = function () {
+
+  var foodIDArray = this.foodArray.map((element) => element.ID);
+  var countObject = getCountsPerElement(foodIDArray);
+  var counts = Object.values(countObject);
+
+  if(counts.filter((count) => count > 1).length > 0) {
+    return false;
+  } else {
+    return true;
+  };
+}
+
+Meal.prototype.validate_MealServingLimit = function () {
+  // Validation #4 - meal serving limit
   //# servings chosen does not overshoot the meal requirement
-  console.log(this.foodArray);
-  console.log(this.foodArray.map(foodRecord  => foodRecord.servings).reduce((accumulator, reducer) => accumulator + reducer));
+  //if (servingsChosen > servingsRequired) then FALSE
+  // var servingsChosen = this.foodArray.map(foodRecord  => foodRecord.servings).reduce((accumulator, reducer) => accumulator + reducer);
+}
 
+
+Meal.prototype.validate_Variety = function() {
+  // Validation #1 - Food group meal variety requirement
   //if serving variety requirement has not been met, and count distinct food groups needing to be chosen < servingsRemaining then return false
   var distinctGroupsChosen = 1;
   var servingsChosen = 2;
   var distinctFoodGroupsRemaining = this.distintGroupsRequired - distinctGroupsChosen;
   var servingsRemaining = this.servingsRequired - servingsChosen;
-
   if (distinctFoodGroupsRemaining > servingsRemaining) {
     return false;
   } else {
@@ -112,25 +140,60 @@ function MealPlan (person, numberOfMeals) {
   //get total servings required with assumption that a serving on average contains 100 calories
   this.servingsRequired = parseInt(person.dailyCalorieExpenditure/100);
   this.servingsRequiredbyGroup  = {
-    "Vegetable": parseInt(this.servingsRequired * (5/26))
+    "Vegetables": parseInt(this.servingsRequired * (5/26))
     , "Dairy": parseInt(this.servingsRequired * (3/26))
-    , "Meat_Poultry_Fish_Nuts":parseInt(this.servingsRequired * (3/26))
-    , "Fruit": parseInt(this.servingsRequired * (4/26))
+    , "Meat, Poultry, Nuts":parseInt(this.servingsRequired * (3/26))
+    , "Fruits": parseInt(this.servingsRequired * (4/26))
     , "Grains":parseInt(this.servingsRequired * (11/26))
   };
 
   this.numberOfMeals = numberOfMeals;
   this.requirements;
   this.meals = [];
-  this.addMeal;
-  this.removeMeal;
   this.savePlan;
   this.getMeals;
   this.validate;
 }
 
+MealPlan.prototype.validate_GroupServingLimit = function() {
+  //Prevents user from making food selection that violates the daily limit of N servings for group G
+  var foodArray_MealPlan = [];
+  this.meals.forEach(meal => {
+    foodArray_MealPlan = foodArray_MealPlan.concat(meal.foodArray)
+  });
+
+  var currentGroupServings = sumOverArray(foodArray_MealPlan, "foodGroup", "servings");
+  var distinctGroups = Object.keys(currentGroupServings);
+
+  var violations = distinctGroups.filter(group => {
+    return (currentGroupServings[group] > this.servingsRequiredbyGroup[group])
+  });
+
+  if (violations.length  = 0) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+MealPlan.prototype.addMeal = function(meal) {
+  return this.meals.push(meal);
+}
 
 module.exports.Meal = Meal;
 module.exports.Person = Person;
 module.exports.MealPlan = MealPlan;
-module.exports.food = foodList;
+module.exports.FoodDataClient = FoodDataClient;
+// module.exports.food = foodList;
+
+function FoodDataClient() {
+  //constructor method is empty because this is a utility class
+}
+
+FoodDataClient.prototype.searchFood = function(searchTerm) {
+  return foodDatabase.filter((foodRecord) => foodRecord.name.includes(searchTerm));
+}
+
+FoodDataClient.prototype.getFood = function(foodID) {
+  return foodDatabase.find((foodRecord) => foodRecord.ID === foodID);
+}
