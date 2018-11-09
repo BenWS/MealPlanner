@@ -1,5 +1,36 @@
 const foodDatabase = require("./FoodDatabase.js");
 
+
+function getDistinctValues(array) {
+  var distinctArray = [];
+  array.forEach((element) => {
+    if(!distinctArray.includes(element)) {
+      distinctArray.push(element);
+    }
+  })
+  return distinctArray;
+}
+
+function getCountsPerElement(array) {
+  var distinctArray = getDistinctValues(array);
+  var counts = {};
+  distinctArray.forEach((element) => counts[element] = 0);
+  distinctArray.forEach((element) => counts[element] = 0);
+  array.forEach((element) => counts[element] = counts[element] + 1);
+  return counts;
+}
+
+function sumOverArray(array, groupByProperty, sumOverProperty) {
+  var tempArray = array.map((element) => element[groupByProperty])
+  var distinctArray = getDistinctValues(tempArray);
+  var sums = {};
+  distinctArray.forEach((element) => sums[element] = 0);
+  array.forEach((element) => sums[element[groupByProperty]] += element[sumOverProperty]);
+  return sums;
+}
+
+
+
 function Person (age, sex, weight_lbs, height_in, activityLevel) {
   this.age = age;
   this.sex = sex;
@@ -31,6 +62,10 @@ function Person (age, sex, weight_lbs, height_in, activityLevel) {
   this.dailyCalorieExpenditure = (this.bmr*this.activityFactor).toFixed(2);
 }
 
+
+
+
+
 function Meal (name, mealPlan, mealSize) {
 
   mealSize = parseInt(mealSize);
@@ -48,6 +83,7 @@ function Meal (name, mealPlan, mealSize) {
   this.name = name;
   this.foodArray = [];
   this.mealPlan = mealPlan;
+  this.mealSize = mealSize;
 
   if(this.servingsRequired >= 3) {
     this.distinctGroupsRequired = 3;
@@ -56,8 +92,11 @@ function Meal (name, mealPlan, mealSize) {
   }
 }
 
-Meal.prototype.addFood = function(foodID,numberOfServings) {
 
+Meal.prototype.addFood = function(foodID,numberOfServings) {
+  //does adding new meal item viloate the meal serving requirement?
+  //does adding new meal item violate the group seving requirement?
+  //does adding new meal item allow the user to still meet the group serving requirement?
   var foodDataClient = new FoodDataClient();
   var foodObject = foodDataClient.getFood(foodID);
 
@@ -70,34 +109,6 @@ Meal.prototype.removeFood = function(foodArrayIndex) {
   return this.foodArray.splice(key,1);
 }
 
-function getDistinctValues(array) {
-  var distinctArray = [];
-  array.forEach((element) => {
-    if(!distinctArray.includes(element)) {
-      distinctArray.push(element);
-    }
-  })
-  return distinctArray;
-}
-
-function getCountsPerElement(array) {
-  var distinctArray = getDistinctValues(array);
-  var counts = {};
-  distinctArray.forEach((element) => counts[element] = 0);
-  distinctArray.forEach((element) => counts[element] = 0);
-  array.forEach((element) => counts[element] = counts[element] + 1);
-  return counts;
-}
-
-function sumOverArray(array, groupByProperty, sumOverProperty) {
-
-  var tempArray = array.map((element) => element[groupByProperty])
-  var distinctArray = getDistinctValues(tempArray);
-  var sums = {};
-  distinctArray.forEach((element) => sums[element] = 0);
-  array.forEach((element) => sums[element[groupByProperty]] += element[sumOverProperty]);
-  return sums;
-}
 
 Meal.prototype.validate_FoodUnqiueness = function () {
 
@@ -112,30 +123,50 @@ Meal.prototype.validate_FoodUnqiueness = function () {
   };
 }
 
-Meal.prototype.validate_MealServingLimit = function () {
-  // Validation #4 - meal serving limit
-  //# servings chosen does not overshoot the meal requirement
-  //if (servingsChosen > servingsRequired) then FALSE
-  // var servingsChosen = this.foodArray.map(foodRecord  => foodRecord.servings).reduce((accumulator, reducer) => accumulator + reducer);
+Meal.prototype.validate_lessThanServingLimit = function () {
+  var servingsInMeal = this.foodArray.reduce((accumulator, current) => accumulator + current.servings, 0);
+  if(servingsInMeal < this.servingsRequired ) {
+    return true;
+  } else {
+    return false;
+  }
 }
 
+Meal.prototype.validate_equalsServingLimit = function () {
+  var servingsInMeal = this.foodArray.reduce((accumulator, current) => accumulator + current.servings, 0);
+  if(servingsInMeal == this.servingsRequired ) {
+    return true;
+  } else {
+    return false;
+  }
+}
 
-Meal.prototype.validate_Variety = function() {
-  // Validation #1 - Food group meal variety requirement
-  //if serving variety requirement has not been met, and count distinct food groups needing to be chosen < servingsRemaining then return false
-  var distinctGroupsChosen = 1;
-  var servingsChosen = 2;
-  var distinctFoodGroupsRemaining = this.distintGroupsRequired - distinctGroupsChosen;
+Meal.prototype.validate_GroupVarietyCanBeMet = function() {
+  var distinctGroupsRequired = (this.servingsRequired < 3 ? this.servingsRequired : 3);
+  var servingsChosen = this.foodArray.reduce((accumulator, current) => accumulator + current.servings, 0);;
   var servingsRemaining = this.servingsRequired - servingsChosen;
-  if (distinctFoodGroupsRemaining > servingsRemaining) {
+
+  //if count distinct food groups required < servingsRemaining, then meal fails validation
+  if (servingsRemaining < distinctGroupsRequired) {
     return false;
   } else {
     return true;
   }
 }
 
-function MealPlan (person, numberOfMeals) {
+Meal.prototype.validate_GroupVariety = function() {
+  var foodGroupCount = getDistinctValues(this.foodArray.map(element => element.foodGroupID)).length;
+  if (foodGroupCount < 3) {
+    return false;
+  } else {
+    return true;
+  }
+}
 
+
+
+
+function MealPlan (person, numberOfMeals) {
   this.numberOfMeals = parseInt(numberOfMeals);
   //get total servings required with assumption that a serving on average contains 100 calories
   this.servingsRequired = parseInt(person.dailyCalorieExpenditure/100);
@@ -169,7 +200,20 @@ MealPlan.prototype.validate_GroupServingLimit = function() {
     return (currentGroupServings[group] > this.servingsRequiredbyGroup[group])
   });
 
-  if (violations.length  = 0) {
+  if (violations.length == 0) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+MealPlan.prototype.validate_ServingRequirement = function() {
+  var mealUnitsSelected = this.meals.reduce((sum, meal) => sum + meal.mealSize, 0);
+  var mealsRemaining = this.numberOfMeals - this.meals.length
+
+  //"if lowest possible meal unit count is less than, and highest possible meal unit count is greater than 10"
+  //if ^^ is met then we know the requirement can still be met
+  if (mealUnitsSelected + mealsRemaining <= 10 && mealUnitsSelected + (mealsRemaining * 5) >= 10) {
     return true;
   } else {
     return false;
@@ -177,23 +221,25 @@ MealPlan.prototype.validate_GroupServingLimit = function() {
 }
 
 MealPlan.prototype.addMeal = function(meal) {
+  //does new meal violate the serving requirement?
   return this.meals.push(meal);
 }
 
-module.exports.Meal = Meal;
-module.exports.Person = Person;
-module.exports.MealPlan = MealPlan;
-module.exports.FoodDataClient = FoodDataClient;
-// module.exports.food = foodList;
 
 function FoodDataClient() {
   //constructor method is empty because this is a utility class
 }
 
 FoodDataClient.prototype.searchFood = function(searchTerm) {
-  return foodDatabase.filter((foodRecord) => foodRecord.name.includes(searchTerm));
+  return foodDatabase.filter((foodRecord) => foodRecord.foodName.includes(searchTerm));
 }
 
 FoodDataClient.prototype.getFood = function(foodID) {
   return foodDatabase.find((foodRecord) => foodRecord.ID === foodID);
 }
+
+
+module.exports.Meal = Meal;
+module.exports.Person = Person;
+module.exports.MealPlan = MealPlan;
+module.exports.FoodDataClient = FoodDataClient;
