@@ -1,30 +1,60 @@
-const MealPlanner = require("./MealPlanner.js");
+/*
+Welcome user
+Prompt user for information in order to appropriately set calorie intake restriction
+Prompt user to choose the number of meals they would like
+While Meal Plan is incomplete
+	Display Status (See Below)
+	Prompt user to create new Meal entry
+		Prompt user to select meal size
+		Prompt user to name new meal
+		Validation #1 (See Below)
+		While Meal is incomplete, AddFoodEntryToMeal.txt
+		Validation #2 (See Below)
+Display Meal Plan to user
+*/
 
-var foodClient = new MealPlanner.FoodDataClient();
-var ben = new MealPlanner.Person(27, "Male", 170, 72, "VERY ACTIVE");
-var mealPlan = new MealPlanner.MealPlan(ben, 3);
-var breakfast = new MealPlanner.Meal("Breakfast", mealPlan, 1);
-var lunch = new MealPlanner.Meal("Lunch", mealPlan, 3);
-var dinner = new MealPlanner.Meal("Lunch", mealPlan, 1);
+const readline = require('readline');
 
-breakfast.addFood("11829", 1);
-breakfast.addFood("05009", 1);
-console.log(foodClient.searchFood("Chicken"));
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout
+});
 
-lunch.addFood("11829", 1);
-lunch.addFood("11829", 1);
+console.log("Welcome to Meal Planner. Please answer the following questions: ")
 
-mealPlan.addMeal(breakfast);
-mealPlan.addMeal(lunch);
+rl.question('Name: ', (answer) => {
+  // TODO: Log the answer in a database
+  var name = answer;
+  
+});
 
+rl.question('Age: ', (answer) => {
+  // TODO: Log the answer in a database
+  var age = answer;
+  rl.close();
+});
 
-// testing validation methods
-// console.log(breakfast.validate_lessThanServingLimit());
-// console.log(breakfast.validate_equalsServingLimit());
-// console.log(breakfast.validate_FoodUnqiueness());
-console.log(breakfast.validate_GroupVariety());
-console.log(breakfast.validate_GroupVarietyCanBeMet());
-// console.log(mealPlan.validate_GroupServingLimit());
-// console.log(mealPlan.validate_ServingRequirement());
-console.log(breakfast.foodArray.reduce((acc, red) => acc + red.servings, 0));
-console.log(breakfast.servingsRequired);
+// rl.question('Gender (M/F): ', (answer) => {
+//   var gender = answer;
+//   rl.close();
+// });
+
+// rl.question('Weight (lbs): ', (answer) => {
+//   var weight_lbs = answer;
+//   rl.close();
+// });
+//
+// rl.question('Height (in): ', (answer) => {
+//   var height_inches = answer;
+//   rl.close();
+// });
+//
+// rl.question('Activity Level: ', (answer) => {
+//   var height_inches = answer;
+//   rl.close();
+// });
+//
+// rl.question('Activity Factor: ', (answer) => {
+//   var height_inches = answer;
+//   rl.close();
+// });
