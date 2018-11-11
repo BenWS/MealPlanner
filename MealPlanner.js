@@ -21,12 +21,11 @@ function getCountsPerElement(array) {
 }
 
 function sumOverArray(array, groupByProperty, sumOverProperty) {
-  var tempArray = array.map((element) => element[groupByProperty])
-  var distinctArray = getDistinctValues(tempArray);
-  var sums = {};
-  distinctArray.forEach((element) => sums[element] = 0);
-  array.forEach((element) => sums[element[groupByProperty]] += element[sumOverProperty]);
-  return sums;
+  var groups = getDistinctValues(array.map((element) => element[groupByProperty]));
+  var sum = {};
+  groups.forEach((group) => sum[group] = 0);
+  array.forEach((element) => sum[element[groupByProperty]] += element[sumOverProperty]);
+  return sum;
 }
 
 
@@ -61,8 +60,6 @@ function Person (age, sex, weight_lbs, height_in, activityLevel) {
   //determine calorie expenditure through calculated properties
   this.dailyCalorieExpenditure = (this.bmr*this.activityFactor).toFixed(2);
 }
-
-
 
 
 
@@ -143,11 +140,13 @@ Meal.prototype.validate_equalsServingLimit = function () {
 
 Meal.prototype.validate_GroupVarietyCanBeMet = function() {
   var distinctGroupsRequired = (this.servingsRequired < 3 ? this.servingsRequired : 3);
+  var distinctGroupsChosen =   getDistinctValues(this.foodArray.map(element => element.foodGroupID)).length;
   var servingsChosen = this.foodArray.reduce((accumulator, current) => accumulator + current.servings, 0);;
   var servingsRemaining = this.servingsRequired - servingsChosen;
+  var distinctGroupsRemaining = distinctGroupsRemaining - distinctGroupsChosen;
 
   //if count distinct food groups required < servingsRemaining, then meal fails validation
-  if (servingsRemaining < distinctGroupsRequired) {
+  if (servingsRemaining < distinctGroupsRemaining) {
     return false;
   } else {
     return true;
@@ -163,7 +162,18 @@ Meal.prototype.validate_GroupVariety = function() {
   }
 }
 
+Meal.prototype.getStatus = function() {
+  var distinctFoodGroupsChosen = getDistinctValues(this.foodArray.map(element => element.foodGroupID)).length;
+  var servingsChosen = this.foodArray.reduce((acc, red) => acc + red.servings, 0)
 
+  var status = {}
+  status.distinctFoodGroupsChosen =  distinctFoodGroupsChosen;
+  status.servingsChosen = servingsChosen;
+  status.servingsRequired = this.servingsRequired;
+  status.distinctGroupsRequired = this.distinctGroupsRequired;
+
+  return status;
+}
 
 
 function MealPlan (person, numberOfMeals) {
@@ -189,8 +199,8 @@ function MealPlan (person, numberOfMeals) {
 MealPlan.prototype.validate_GroupServingLimit = function() {
   //Prevents user from making food selection that violates the daily limit of N servings for group G
   var foodArray_MealPlan = [];
-  this.meals.forEach(meal => {
-    foodArray_MealPlan = foodArray_MealPlan.concat(meal.foodArray)
+  this.meals.forEach(element => {
+    foodArray_MealPlan = foodArray_MealPlan.concat(element.foodArray)
   });
 
   var currentGroupServings = sumOverArray(foodArray_MealPlan, "foodGroup", "servings");
@@ -211,13 +221,37 @@ MealPlan.prototype.validate_ServingRequirement = function() {
   var mealUnitsSelected = this.meals.reduce((sum, meal) => sum + meal.mealSize, 0);
   var mealsRemaining = this.numberOfMeals - this.meals.length
 
-  //"if lowest possible meal unit count is less than, and highest possible meal unit count is greater than 10"
-  //if ^^ is met then we know the requirement can still be met
+  /*Rule:"if lowest possible meal unit count is less than
+    , and highest possible meal unit count is greater than 10"
+  If ^^ is met then we know the meal variety requirement can still be met*/
   if (mealUnitsSelected + mealsRemaining <= 10 && mealUnitsSelected + (mealsRemaining * 5) >= 10) {
     return true;
   } else {
     return false;
   }
+}
+
+MealPlan.prototype.getStatus = function() {
+  var mealPlanFoodArray = [];
+  this.meals.forEach(element => mealPlanFoodArray = mealPlanFoodArray.concat(element.foodArray));
+  var servingsChosen = mealPlanFoodArray.reduce((accumulator, currentElement) => {
+     return accumulator + currentElement.servings;
+   }, 0);
+
+  var foodArray_MealPlan = [];
+  this.meals.forEach(meal => {
+   foodArray_MealPlan = foodArray_MealPlan.concat(meal.foodArray)
+  });
+  var currentGroupServings = sumOverArray(foodArray_MealPlan, "foodGroup", "servings");
+
+  var result = {};
+  result.numberOfMealsChosen = this.meals.length;
+  result.numberOfMealsRequired = this.numberOfMeals;
+  result.numberOfServingsChosen = servingsChosen;
+  result.numberOfServingsRequired = this.servingsRequired;//console.log(this.servingsRequired);
+  result.numberOfGroupServingsChosen = currentGroupServings; //console.log(currentGroupServings);
+  result.numberOfGroupServingsRequired = this.servingsRequiredbyGroup; //console.log(this.servingsRequiredbyGroup);
+  return result;
 }
 
 MealPlan.prototype.addMeal = function(meal) {
@@ -235,7 +269,10 @@ FoodDataClient.prototype.searchFood = function(searchTerm) {
 }
 
 FoodDataClient.prototype.getFood = function(foodID) {
-  return foodDatabase.find((foodRecord) => foodRecord.ID === foodID);
+  var searchResult = foodDatabase.find((foodRecord) => foodRecord.ID === foodID);
+  var returnObject = {};
+  Object.assign(returnObject, searchResult);
+  return returnObject;
 }
 
 
