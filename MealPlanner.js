@@ -89,16 +89,26 @@ function Meal (name, mealPlan, mealSize) {
   }
 }
 
-
 Meal.prototype.addFood = function(foodID,numberOfServings) {
-  //does adding new meal item viloate the meal serving requirement?
-  //does adding new meal item violate the group seving requirement?
-  //does adding new meal item allow the user to still meet the group serving requirement?
+
   var foodDataClient = new FoodDataClient();
   var foodObject = foodDataClient.getFood(foodID);
-
   foodObject.servings = numberOfServings;
   this.foodArray.push(foodObject);
+
+  if(!this.validate_FoodUniqueness()) {
+    this.foodArray.pop();
+    throw `Food item '${foodObject.foodName}' already exists in meal`
+  } else if (!this.validate_lessThanServingLimit()) {
+    this.foodArray.pop();
+    throw `Food serving selection puts servings in meal above requirement`
+  } else if (!this.validate_GroupVarietyCanBeMet()) {
+    this.foodArray.pop();
+    throw `Serving selection for food group places group variety requirement out of reach`
+  } else if (!this.mealPlan.validate_GroupServingLimit()) {
+    throw 'Group Serving Limit violated'
+  };
+
   return true;
 }
 
@@ -122,7 +132,7 @@ Meal.prototype.validate_FoodUnqiueness = function () {
 
 Meal.prototype.validate_lessThanServingLimit = function () {
   var servingsInMeal = this.foodArray.reduce((accumulator, current) => accumulator + current.servings, 0);
-  if(servingsInMeal < this.servingsRequired ) {
+  if(servingsInMeal <= this.servingsRequired ) {
     return true;
   } else {
     return false;
@@ -254,9 +264,23 @@ MealPlan.prototype.getStatus = function() {
   return result;
 }
 
-MealPlan.prototype.addMeal = function(meal) {
-  //does new meal violate the serving requirement?
-  return this.meals.push(meal);
+MealPlan.prototype.addMeal = function(mealName, mealSize) {
+  var meal = new Meal(mealName, this, mealSize);
+
+  /*Validations
+      - Does Meal Name already exist?
+      - Does new *Meal* serving requirement violate the *Meal Plan* serving requirement?
+      - Does adding new Meal violate the number of meals prescribed for the Meal Plan?
+  */
+
+  this.meals.push(meal);
+  // console.log(this.validate_ServingRequirement)
+  if (!this.validate_ServingRequirement()) {
+    this.meals.pop();
+    throw 'Serving Amount for Meal violates Meal Plan Serving Allowance';
+  } else {
+    return meal;
+  }
 }
 
 
