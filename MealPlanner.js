@@ -96,6 +96,13 @@ Meal.prototype.addFood = function(foodID,numberOfServings) {
   foodObject.servings = numberOfServings;
   this.foodArray.push(foodObject);
 
+  /*Requirements and Validations
+    done - User cannot make a Food Selection that would prevent the user from eventually meeting the Food Group Variety Meal Requirement
+    done - Meal cannot contain a food which already exists in the Meal
+    done - User cannot make food selection that violates the Meal Plan limit for any food group
+    done - User must make food serving selection that is less than or equal to the serving limit for the meal
+  */
+
   if(!this.validate_FoodUniqueness()) {
     this.foodArray.pop();
     throw `Food item '${foodObject.foodName}' already exists in meal`
@@ -106,10 +113,11 @@ Meal.prototype.addFood = function(foodID,numberOfServings) {
     this.foodArray.pop();
     throw `Serving selection for food group places group variety requirement out of reach`
   } else if (!this.mealPlan.validate_GroupServingLimit()) {
+    this.foodArray.pop();
     throw 'Group Serving Limit violated'
-  };
-
-  return true;
+  } else {
+    return true;
+  }
 }
 
 Meal.prototype.removeFood = function(foodArrayIndex) {
@@ -241,6 +249,18 @@ MealPlan.prototype.validate_ServingRequirement = function() {
   }
 }
 
+MealPlan.prototype.isMealNameUnique = function () {
+  var mealNames = this.meals.map(element => element.name);
+  var mealNameCounts = Object.values(getCountsPerElement(mealNames));
+  var uniquenessViolations = mealNameCounts.filter(element => element > 1);
+
+  if (uniquenessViolations.length == 0) {
+    return true;
+  } else {
+    return false;
+  }
+ }
+
 MealPlan.prototype.getStatus = function() {
   var mealPlanFoodArray = [];
   this.meals.forEach(element => mealPlanFoodArray = mealPlanFoodArray.concat(element.foodArray));
@@ -258,31 +278,32 @@ MealPlan.prototype.getStatus = function() {
   result.numberOfMealsChosen = this.meals.length;
   result.numberOfMealsRequired = this.numberOfMeals;
   result.numberOfServingsChosen = servingsChosen;
-  result.numberOfServingsRequired = this.servingsRequired;//console.log(this.servingsRequired);
-  result.numberOfGroupServingsChosen = currentGroupServings; //console.log(currentGroupServings);
-  result.numberOfGroupServingsRequired = this.servingsRequiredbyGroup; //console.log(this.servingsRequiredbyGroup);
+  result.numberOfServingsRequired = this.servingsRequired;
+  result.numberOfGroupServingsChosen = currentGroupServings;
+  result.numberOfGroupServingsRequired = this.servingsRequiredbyGroup;
   return result;
 }
 
 MealPlan.prototype.addMeal = function(mealName, mealSize) {
   var meal = new Meal(mealName, this, mealSize);
 
-  /*Validations
-      - Does Meal Name already exist?
-      - Does new *Meal* serving requirement violate the *Meal Plan* serving requirement?
-      - Does adding new Meal violate the number of meals prescribed for the Meal Plan?
+  /*Requirements and Validations
+      Done - Does Meal Name already exist?
+      Done - Does new *Meal* serving requirement violate the *Meal Plan* serving requirement?
+      Done - Does adding new Meal violate the number of meals prescribed for the Meal Plan? Note: This is covered by the requirement that the meal doesn't violate the Meal Plan serving requirement
   */
 
   this.meals.push(meal);
-  // console.log(this.validate_ServingRequirement)
   if (!this.validate_ServingRequirement()) {
     this.meals.pop();
     throw 'Serving Amount for Meal violates Meal Plan Serving Allowance';
+  } else if(!this.isMealNameUnique()) {
+    this.meals.pop();
+    throw `Meal '${meal.name}' already exists in Meal Plan`;
   } else {
     return meal;
   }
 }
-
 
 function FoodDataClient() {
   //constructor method is empty because this is a utility class
