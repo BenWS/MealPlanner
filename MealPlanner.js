@@ -1,4 +1,6 @@
 const foodDatabase = require("./FoodDatabase.js");
+const mongoDB = require('mongoDB');
+const MongoClient = mongoDB.MongoClient;
 
 
 function getDistinctValues(array) {
@@ -38,15 +40,15 @@ function Person (age, sex, weight_lbs, height_in, activityLevel) {
   this.activityLevel = activityLevel;
 
   //assign activityFactor value for CalorieExpenditure calculation
-  if (activityLevel==="SEDENTARY") {
+  if (activityLevel===0) {
     this.activityFactor = 1.2
-  } else if (this.activityLevel==="LIGHTLY ACTIVE") {
+  } else if (this.activityLevel===1) {
     this.activityFactor = 1.375
-  } else if (this.activityLevel==="MODERATELY ACTIVE") {
+  } else if (this.activityLevel===2) {
     this.activityFactor = 1.55
-  } else if (this.activityLevel==="VERY ACTIVE") {
+  } else if (this.activityLevel===3) {
     this.activityFactor = 1.725
-  } else if (this.activityLevel==="EXTRA ACTIVE") {
+  } else if (this.activityLevel===4) {
     this.activityFactor = 1.9
   }
 
@@ -93,7 +95,7 @@ Meal.prototype.addFood = function(foodID,numberOfServings) {
 
   var foodDataClient = new FoodDataClient();
   var foodObject = foodDataClient.getFood(foodID);
-  foodObject.servings = numberOfServings;
+  foodObject.servings = parseInt(numberOfServings);
   this.foodArray.push(foodObject);
 
   /*Requirements and Validations
@@ -102,22 +104,22 @@ Meal.prototype.addFood = function(foodID,numberOfServings) {
     done - User cannot make food selection that violates the Meal Plan limit for any food group
     done - User must make food serving selection that is less than or equal to the serving limit for the meal
   */
-
-  if(!this.validate_FoodUniqueness()) {
-    this.foodArray.pop();
-    throw `Food item '${foodObject.foodName}' already exists in meal`
-  } else if (!this.validate_lessThanServingLimit()) {
-    this.foodArray.pop();
-    throw `Food serving selection puts servings in meal above requirement`
-  } else if (!this.validate_GroupVarietyCanBeMet()) {
-    this.foodArray.pop();
-    throw `Serving selection for food group places group variety requirement out of reach`
-  } else if (!this.mealPlan.validate_GroupServingLimit()) {
-    this.foodArray.pop();
-    throw 'Group Serving Limit violated'
-  } else {
-    return true;
-  }
+  //
+  // if(!this.validate_FoodUnqiueness()) {
+  //   this.foodArray.pop();
+  //   throw `Food item '${foodObject.foodName}' already exists in meal`
+  // } else if (!this.validate_lessThanServingLimit()) {
+  //   this.foodArray.pop();
+  //   throw `Food serving selection puts servings in meal above requirement`
+  // } else if (!this.validate_GroupVarietyCanBeMet()) {
+  //   this.foodArray.pop();
+  //   throw `Serving selection for food group places group variety requirement out of reach`
+  // } else if (!this.mealPlan.validate_GroupServingLimit()) {
+  //   this.foodArray.pop();
+  //   throw 'Group Serving Limit violated'
+  // } else {
+  //   return true;
+  // }
 }
 
 Meal.prototype.removeFood = function(foodArrayIndex) {
@@ -147,9 +149,9 @@ Meal.prototype.validate_lessThanServingLimit = function () {
   }
 }
 
-Meal.prototype.validate_equalsServingLimit = function () {
+Meal.prototype.isComplete = function () {
   var servingsInMeal = this.foodArray.reduce((accumulator, current) => accumulator + current.servings, 0);
-  if(servingsInMeal == this.servingsRequired ) {
+  if(servingsInMeal >= this.servingsRequired ) {
     return true;
   } else {
     return false;
@@ -199,11 +201,11 @@ function MealPlan (person, numberOfMeals) {
   //get total servings required with assumption that a serving on average contains 100 calories
   this.servingsRequired = parseInt(person.dailyCalorieExpenditure/100);
   this.servingsRequiredbyGroup  = {
-    "Vegetables": parseInt(this.servingsRequired * (5/26))
-    , "Dairy": parseInt(this.servingsRequired * (3/26))
-    , "Meat, Poultry, Nuts":parseInt(this.servingsRequired * (3/26))
-    , "Fruits": parseInt(this.servingsRequired * (4/26))
-    , "Grains":parseInt(this.servingsRequired * (11/26))
+    "Vegetables": Math.ceil(this.servingsRequired * (5/26))
+    , "Dairy": Math.ceil(this.servingsRequired * (3/26))
+    , "Meat, Poultry, Nuts":Math.ceil(this.servingsRequired * (3/26))
+    , "Fruits": Math.ceil(this.servingsRequired * (4/26))
+    , "Grains":Math.ceil(this.servingsRequired * (11/26))
   };
 
   this.numberOfMeals = numberOfMeals;
@@ -241,8 +243,9 @@ MealPlan.prototype.validate_ServingRequirement = function() {
 
   /*Rule:"if lowest possible meal unit count is less than
     , and highest possible meal unit count is greater than 10"
-  If ^^ is met then we know the meal variety requirement can still be met*/
-  if (mealUnitsSelected + mealsRemaining <= 10 && mealUnitsSelected + (mealsRemaining * 5) >= 10) {
+  If ^^ is met then we know the meal variety requirement can still be met
+  A meal 'unit' is mealSize = 1, defined in the Meal constructor*/
+  if (mealUnitsSelected + (mealsRemaining * 1) <= 10 && mealUnitsSelected + (mealsRemaining * 5) >= 10) {
     return true;
   } else {
     return false;
@@ -261,6 +264,10 @@ MealPlan.prototype.isMealNameUnique = function () {
   }
  }
 
+ MealPlan.prototype.isComplete = function () {
+   return this.meals.length >= this.numberOfMeals;
+ }
+
 MealPlan.prototype.getStatus = function() {
   var mealPlanFoodArray = [];
   this.meals.forEach(element => mealPlanFoodArray = mealPlanFoodArray.concat(element.foodArray));
@@ -275,6 +282,7 @@ MealPlan.prototype.getStatus = function() {
   var currentGroupServings = sumOverArray(foodArray_MealPlan, "foodGroup", "servings");
 
   var result = {};
+
   result.numberOfMealsChosen = this.meals.length;
   result.numberOfMealsRequired = this.numberOfMeals;
   result.numberOfServingsChosen = servingsChosen;
@@ -287,22 +295,18 @@ MealPlan.prototype.getStatus = function() {
 MealPlan.prototype.addMeal = function(mealName, mealSize) {
   var meal = new Meal(mealName, this, mealSize);
 
-  /*Requirements and Validations
-      Done - Does Meal Name already exist?
-      Done - Does new *Meal* serving requirement violate the *Meal Plan* serving requirement?
-      Done - Does adding new Meal violate the number of meals prescribed for the Meal Plan? Note: This is covered by the requirement that the meal doesn't violate the Meal Plan serving requirement
-  */
-
   this.meals.push(meal);
-  if (!this.validate_ServingRequirement()) {
-    this.meals.pop();
-    throw 'Serving Amount for Meal violates Meal Plan Serving Allowance';
-  } else if(!this.isMealNameUnique()) {
-    this.meals.pop();
-    throw `Meal '${meal.name}' already exists in Meal Plan`;
-  } else {
-    return meal;
-  }
+  // if (!this.validate_ServingRequirement()) {
+  //   this.meals.pop();
+  //   throw 'Serving Amount for Meal violates Meal Plan Serving Allowance';
+  // } else if(!this.isMealNameUnique()) {
+  //   this.meals.pop();
+  //   throw `Meal '${meal.name}' already exists in Meal Plan`;
+  // } else {
+  //   return meal;
+  // }
+
+  return meal;
 }
 
 function FoodDataClient() {
